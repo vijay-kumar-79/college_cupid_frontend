@@ -1,6 +1,89 @@
-# Getting Started with Create React App
+# College Cupid Frontend
+
+A React-based dating application for college students with Microsoft OAuth authentication.
 
 This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+
+## Features
+
+- 🔐 Microsoft OAuth 2.0 Authentication
+- 👤 User Profile Integration via Microsoft Graph API
+- 🎨 Modern, Responsive UI Design
+- 🔄 Popup and Redirect Login Options
+- 📱 Mobile-Friendly Interface
+
+## Quick Start
+
+### Prerequisites
+
+- Node.js (v14 or higher)
+- npm or yarn
+- Microsoft Azure account (for OAuth setup)
+
+### Installation
+
+1. Clone the repository and navigate to the project directory
+
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+
+3. Set up Microsoft OAuth (see detailed guide in [OAUTH_SETUP.md](./OAUTH_SETUP.md)):
+   - Create an app registration in Azure Portal
+   - Copy `.env.example` to `.env`
+   - Add your Microsoft Client ID and configuration
+
+4. Start the development server:
+   ```bash
+   npm start
+   ```
+
+5. Open [http://localhost:3000](http://localhost:3000) in your browser
+
+## Microsoft OAuth Setup
+
+For detailed instructions on setting up Microsoft OAuth authentication, please refer to [OAUTH_SETUP.md](./OAUTH_SETUP.md).
+
+### Quick Configuration
+
+1. Copy the environment template:
+   ```bash
+   cp .env.example .env
+   ```
+
+2. Update `.env` with your Azure app credentials:
+   ```env
+   REACT_APP_MICROSOFT_CLIENT_ID=your-client-id-here
+   REACT_APP_MICROSOFT_AUTHORITY=https://login.microsoftonline.com/common
+   REACT_APP_REDIRECT_URI=http://localhost:3000
+   ```
+
+## Project Structure
+
+```
+src/
+├── config/
+│   └── authConfig.js       # MSAL configuration
+├── pages/
+│   ├── Login.js            # Login page component
+│   ├── Login.css           # Login page styles
+│   ├── Dashboard.js        # Dashboard component
+│   └── Dashboard.css       # Dashboard styles
+├── components/             # Reusable components
+├── App.js                  # Main app component with routing
+└── index.js                # App entry point
+```
+
+## Available Scripts
+
+## Technologies Used
+
+- **React 19** - UI Framework
+- **@azure/msal-react** - Microsoft Authentication Library
+- **@azure/msal-browser** - MSAL Browser Support
+- **react-router-dom** - Routing
+- **Microsoft Graph API** - User data integration
 
 ## Available Scripts
 
