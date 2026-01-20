@@ -18,13 +18,13 @@ const AuthCallback = () => {
     // console.log('outlookInfo type:', typeof outlookInfo);
 
     // Log the first 200 characters to see what we're dealing with
-    if (outlookInfo) {
-      console.log('First 200 chars of outlookInfo:', outlookInfo.substring(0, 200));
-      console.log('Char codes at start:');
-      for (let i = 0; i < Math.min(10, outlookInfo.length); i++) {
-        console.log(`Position ${i}: '${outlookInfo[i]}' (char code: ${outlookInfo.charCodeAt(i)})`);
-      }
-    }
+    // if (outlookInfo) {
+    //   console.log('First 200 chars of outlookInfo:', outlookInfo.substring(0, 200));
+    //   console.log('Char codes at start:');
+    //   for (let i = 0; i < Math.min(10, outlookInfo.length); i++) {
+    //     console.log(`Position ${i}: '${outlookInfo[i]}' (char code: ${outlookInfo.charCodeAt(i)})`);
+    //   }
+    // }
 
     // Try to parse with error handling
     if (status && outlookInfo) {
@@ -34,7 +34,7 @@ const AuthCallback = () => {
 
         // Check if it starts with HTML entities
         if (cleanString.startsWith('&quot;')) {
-          console.log('Detected HTML entities at start');
+          // console.log('Detected HTML entities at start');
           // Replace HTML entities
           cleanString = cleanString
             .replace(/&quot;/g, '"')
@@ -46,7 +46,7 @@ const AuthCallback = () => {
 
         // Check for double stringification
         if (cleanString.startsWith('"') && cleanString.endsWith('"')) {
-          console.log('String appears to be double-wrapped in quotes');
+          // console.log('String appears to be double-wrapped in quotes');
           // Remove the outer quotes
           cleanString = cleanString.substring(1, cleanString.length - 1);
 
@@ -54,11 +54,11 @@ const AuthCallback = () => {
           cleanString = cleanString.replace(/\\"/g, '"');
         }
 
-        console.log('Cleaned string start:', cleanString.substring(0, 100));
+        // console.log('Cleaned string start:', cleanString.substring(0, 100));
 
         // Now try to parse
         const parsedInfo = JSON.parse(cleanString);
-        console.log('Successfully parsed:', parsedInfo);
+        // console.log('Successfully parsed:', parsedInfo);
 
         if (status === 'SUCCESS') {
           // Store tokens
