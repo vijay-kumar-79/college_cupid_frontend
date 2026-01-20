@@ -10,7 +10,7 @@ const Home = () => {
   const [showProfileForm, setShowProfileForm] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
-    email:'',
+    email: '',
     gender: '',
     program: '',
     yearOfJoin: new Date().getFullYear(),
@@ -25,11 +25,13 @@ const Home = () => {
     },
     personalityType: '',
     publicKey: '',
-    currentInterest: ''
+    currentInterest: '',
+    photos: []  // Store photo URLs
   });
   const [formStep, setFormStep] = useState(1);
   const [submitting, setSubmitting] = useState(false);
   const [profileComplete, setProfileComplete] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
   // Available options for dropdowns
   const genderOptions = ['Male', 'Female', 'Non-binary', 'Prefer not to say'];
@@ -75,14 +77,28 @@ const Home = () => {
           }
         }
       );
-      // console.log(response)
+
       if (response.data.success && response.data.userProfile) {
         // Profile exists
         setProfileComplete(true);
+        const profile = response.data.userProfile;
+        // Transform profilePicUrls to photos array
+        const photos = profile.profilePicUrls 
+          ? profile.profilePicUrls.map(pic => pic.Url) 
+          : [];
+        
         setFormData(prev => ({
           ...prev,
-          ...response.data.userProfile,
-          interests: response.data.userProfile.interests || []
+          name: profile.name || '',
+          gender: profile.gender || '',
+          program: profile.program || '',
+          yearOfJoin: profile.yearOfJoin || new Date().getFullYear(),
+          interests: profile.interests || [],
+          sexualOrientation: profile.sexualOrientation || { type: '', display: false },
+          relationshipGoals: profile.relationshipGoals || { goal: '', display: false },
+          personalityType: profile.personalityType || '',
+          publicKey: profile.publicKey || '',
+          photos: photos
         }));
       }
     } catch (error) {
@@ -96,6 +112,10 @@ const Home = () => {
   const handleLogout = () => {
     localStorage.clear();
     navigate('/login');
+  };
+
+  const handleFeedClick = () => {
+    navigate('/feed');
   };
 
   const handleInputChange = (e) => {
@@ -146,44 +166,211 @@ const Home = () => {
     }
   };
 
+  const handlePhotoUpload = async (e) => {
+    const files = Array.from(e.target.files);
+    if (files.length === 0) return;
+
+    if (formData.photos.length + files.length > 6) {
+      alert('You can upload a maximum of 6 photos');
+      return;
+    }
+
+    setUploadingPhoto(true);
+
+    try {
+      const accessToken = localStorage.getItem('accessToken');
+      const uploadedUrls = [];
+
+      for (const file of files) {
+        // Validate file type
+        if (!file.type.startsWith('image/')) {
+          alert(`${file.name} is not a valid image file`);
+          continue;
+        }
+
+        // Validate file size (max 10MB)
+        if (file.size > 10 * 1024 * 1024) {
+          alert(`${file.name} is too large (max 10MB)`);
+          continue;
+        }
+
+        // Create FormData
+        const formDataToUpload = new FormData();
+        formDataToUpload.append('dp', file);
+
+        console.log('Uploading file:', {
+          name: file.name,
+          size: file.size,
+          type: file.type,
+          tokenExists: !!accessToken,
+          tokenLength: accessToken?.length
+        });
+
+        const response = await axios.post(
+          `${process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000'}/api/v2/uploadImage`,
+          formDataToUpload,
+          {
+            headers: {
+              'Authorization': `Bearer ${accessToken}`
+              // Don't set Content-Type - axios sets it automatically for FormData
+            }
+          }
+        );
+
+        console.log('Upload response:', response.data);
+
+        if (response.data.success) {
+          uploadedUrls.push(response.data.imageUrl);
+          console.log('Image URL received:', response.data.imageUrl);
+        } else {
+          console.error('Upload not successful:', response.data);
+          alert(`Upload failed: ${response.data.message || 'Unknown error'}`);
+        }
+      }
+
+      if (uploadedUrls.length > 0) {
+        setFormData(prev => ({
+          ...prev,
+          photos: [...prev.photos, ...uploadedUrls]
+        }));
+        alert(`Successfully uploaded ${uploadedUrls.length} photo(s)!`);
+      }
+    } catch (error) {
+      console.error('Full error object:', error);
+
+      // Log the complete error response
+      if (error.response) {
+        console.error('Status:', error.response.status);
+        console.error('Headers:', error.response.headers);
+        console.error('Response data:', error.response.data);
+        console.error('Response data stringified:', JSON.stringify(error.response.data, null, 2));
+
+        // Try to get the actual error message
+        const errorMessage = error.response.data?.message ||
+                            error.response.data?.error ||
+                            error.response.data?.details ||
+                            error.message;
+
+        console.error('Parsed error message:', errorMessage);
+
+        // Show specific messages based on error
+        if (error.response.status === 401) {
+          alert('Your session has expired. Please log in again.');
+          handleLogout();
+        } else if (error.response.status === 413) {
+          alert('File too large. Please upload files smaller than 10MB.');
+        } else if (error.response.status === 415) {
+          alert('Invalid file type. Please upload only images (JPG, PNG, GIF).');
+        } else if (error.response.status === 500) {
+          // Show the actual server error message if available
+          const serverError = error.response.data?.error ||
+                             error.response.data?.message ||
+                             'Server error. Please try again.';
+          alert(`Server error: ${serverError}`);
+
+          // Check for specific backend errors
+          if (serverError.includes('disk storage')) {
+            alert('Storage error: The server might be out of disk space.');
+          } else if (serverError.includes('permission')) {
+            alert('Permission error: The server cannot write to the images folder.');
+          } else if (serverError.includes('compress')) {
+            alert('Image processing error: The server failed to compress the image.');
+          }
+        }
+      } else if (error.request) {
+        console.error('No response received:', error.request);
+        alert('No response from server. Please check your internet connection and ensure the server is running.');
+      } else {
+        console.error('Request setup error:', error.message);
+        alert(`Error: ${error.message}`);
+      }
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
+
+  const handlePhotoDelete = async (photoUrl) => {
+    if (!window.confirm('Are you sure you want to delete this photo?')) {
+      return;
+    }
+
+    try {
+      const accessToken = localStorage.getItem('accessToken');
+
+      // Extract photoId from URL
+      const urlParts = photoUrl.split('photoId=');
+      if (urlParts.length < 2) {
+        throw new Error('Invalid photo URL');
+      }
+      const photoId = urlParts[1];
+
+      await axios.delete(
+        `${process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000'}/api/v2/deleteImage/${photoId}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`
+          }
+        }
+      );
+
+      // Remove from local state
+      setFormData(prev => ({
+        ...prev,
+        photos: prev.photos.filter(url => url !== photoUrl)
+      }));
+    } catch (error) {
+      console.error('Error deleting photo:', error);
+      alert(`Failed to delete photo: ${error.response?.data?.message || error.message}`);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    // Validate required fields
     if (formData.interests.length < 5) {
       alert('Please add at least 5 interests');
       return;
     }
 
-    const userEmail = localStorage.getItem('userEmail');
-    setFormData(prev => ({
-      ...prev,
-      email: userEmail
-    }));
-    console.log(formData)
+    if (formData.photos.length === 0) {
+      alert('Please upload at least one photo');
+      return;
+    }
+
+    if (!formData.publicKey) {
+      alert('Please enter your public key');
+      return;
+    }
+
     setSubmitting(true);
 
-    // // Debug: Check token
-    const accessToken = localStorage.getItem('accessToken');
-    // console.log('Access Token exists:', !!accessToken);
-    // console.log('Token length:', accessToken?.length);
-    // console.log('Token first 50 chars:', accessToken?.substring(0, 50) + '...');
-
-    // // Check if token is a JWT
-    // if (accessToken) {
-    //   try {
-    //     const payload = JSON.parse(atob(accessToken.split('.')[1]));
-    //     console.log('Token payload:', payload);
-    //     console.log('Token email:', payload.email);
-    //     console.log('Token exp:', new Date(payload.exp * 1000));
-    //   } catch (err) {
-    //     console.log('Token parsing error:', err);
-    //   }
-    // }
-
     try {
+      const accessToken = localStorage.getItem('accessToken');
+      const userEmail = localStorage.getItem('userEmail');
+
+      // Transform photos array to profilePicUrls format
+      const profilePicUrls = formData.photos.map(photoUrl => ({
+        Url: photoUrl,
+        blurHash: null
+      }));
+
+      // Prepare the data to send
+      const profileData = {
+        ...formData,
+        email: userEmail,
+        profilePicUrls: profilePicUrls
+      };
+
+      // Remove the photos field as it's now in profilePicUrls
+      delete profileData.photos;
+      delete profileData.currentInterest;
+
+      console.log('Submitting profile data:', profileData);
+
       const response = await axios.post(
         `${process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000'}/api/v2/user/profile`,
-        formData,
+        profileData,
         {
           headers: {
             'Authorization': `Bearer ${accessToken}`,
@@ -198,12 +385,12 @@ const Home = () => {
         setProfileComplete(true);
         setShowProfileForm(false);
         alert('Profile saved successfully!');
+
+        // Optionally reload the profile to get updated data
+        checkAuthAndLoadProfile();
       }
     } catch (error) {
-      // console.error('Error saving profile:', error);
-      // console.error('Error response:', error.response?.data);
-      // console.error('Error status:', error.response?.status);
-      // console.error('Error headers:', error.response?.headers);
+      console.error('Error saving profile:', error);
       alert(`Error saving profile: ${error.response?.data?.message || error.message}`);
     } finally {
       setSubmitting(false);
@@ -211,10 +398,36 @@ const Home = () => {
   };
 
   const nextStep = () => {
-    if (formStep === 1 && (!formData.name || !formData.gender || !formData.program || !formData.yearOfJoin)) {
-      alert('Please fill all required fields');
-      return;
+    // Validation for each step
+    if (formStep === 1) {
+      if (!formData.name.trim()) {
+        alert('Please enter your name');
+        return;
+      }
+      if (!formData.gender) {
+        alert('Please select your gender');
+        return;
+      }
+      if (!formData.program) {
+        alert('Please select your program');
+        return;
+      }
+      if (!formData.yearOfJoin) {
+        alert('Please enter your year of join');
+        return;
+      }
+    } else if (formStep === 2) {
+      if (!formData.publicKey.trim()) {
+        alert('Please enter your public key');
+        return;
+      }
+    } else if (formStep === 3) {
+      if (formData.interests.length < 5) {
+        alert('Please add at least 5 interests');
+        return;
+      }
     }
+
     setFormStep(prev => prev + 1);
   };
 
@@ -239,7 +452,7 @@ const Home = () => {
         </div>
         <div className="navbar-right">
           <div className="user-info">
-            <span className="user-name">{user.displayName}</span>
+            <span className="user-name">{user?.displayName || 'User'}</span>
             <button onClick={handleLogout} className="logout-btn">
               Logout
             </button>
@@ -277,7 +490,7 @@ const Home = () => {
 
         {profileComplete && (
           <div className="welcome-section">
-            <h2>Welcome back, {formData.name || user.displayName}! 👋</h2>
+            <h2>Welcome back, {formData.name || user?.displayName || 'User'}! 👋</h2>
             <p className="welcome-message">
               Your profile is complete! Start exploring matches and connecting with other students.
             </p>
@@ -305,6 +518,12 @@ const Home = () => {
                       )}
                     </div>
                   </div>
+                  {formData.photos.length > 0 && (
+                    <div className="summary-item">
+                      <span className="summary-label">Photos:</span>
+                      <span className="summary-value">{formData.photos.length} uploaded</span>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -312,13 +531,16 @@ const Home = () => {
             <div className="dashboard-actions">
               <h3>What would you like to do?</h3>
               <div className="action-grid">
-                <button className="dashboard-btn">
+                <button
+                  className="dashboard-btn"
+                  onClick={() => setShowProfileForm(true)}
+                >
                   <span className="btn-icon">👤</span>
                   <span className="btn-text">Edit Profile</span>
                 </button>
-                <button className="dashboard-btn">
+                <button className="dashboard-btn" onClick={handleFeedClick}>
                   <span className="btn-icon">💑</span>
-                  <span className="btn-text" >Find Matches</span>
+                  <span className="btn-text">Find Matches</span>
                 </button>
                 <button className="dashboard-btn">
                   <span className="btn-icon">💬</span>
@@ -336,7 +558,7 @@ const Home = () => {
         {showProfileForm && (
           <div className="profile-form-container">
             <div className="form-header">
-              <h2>Complete Your Profile</h2>
+              <h2>{profileComplete ? 'Edit Your Profile' : 'Complete Your Profile'}</h2>
               <div className="form-steps">
                 <div className={`step ${formStep >= 1 ? 'active' : ''}`}>
                   <span className="step-number">1</span>
@@ -351,6 +573,11 @@ const Home = () => {
                 <div className={`step ${formStep >= 3 ? 'active' : ''}`}>
                   <span className="step-number">3</span>
                   <span className="step-text">Interests</span>
+                </div>
+                <div className="step-line"></div>
+                <div className={`step ${formStep >= 4 ? 'active' : ''}`}>
+                  <span className="step-number">4</span>
+                  <span className="step-text">Photos</span>
                 </div>
               </div>
             </div>
@@ -644,8 +871,91 @@ const Home = () => {
                       ← Back
                     </button>
                     <button
+                      type="button"
+                      onClick={nextStep}
+                      disabled={formData.interests.length < 5}
+                      className="btn-next"
+                    >
+                      Next →
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {formStep === 4 && (
+                <div className="form-step">
+                  <h3>Upload Photos</h3>
+                  <p className="form-description">
+                    Add 1-6 photos to your profile. Your first photo will be your main profile picture.
+                  </p>
+
+                  <div className="photo-upload-container">
+                    <div className="photos-grid">
+                      {formData.photos.map((photoUrl, index) => (
+                        <div key={index} className="photo-item">
+                          <img
+                            src={photoUrl}
+                            alt={`Upload ${index + 1}`}
+                            onError={(e) => {
+                              e.target.onerror = null;
+                              e.target.src = 'https://via.placeholder.com/150x150?text=Image+Error';
+                            }}
+                          />
+                          {index === 0 && <span className="main-badge">Main</span>}
+                          <button
+                            type="button"
+                            onClick={() => handlePhotoDelete(photoUrl)}
+                            className="delete-photo-btn"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
+
+                      {formData.photos.length < 6 && (
+                        <div className="photo-upload-box">
+                          <input
+                            type="file"
+                            id="photo-upload"
+                            accept="image/*"
+                            multiple
+                            onChange={handlePhotoUpload}
+                            disabled={uploadingPhoto}
+                            style={{ display: 'none' }}
+                          />
+                          <label htmlFor="photo-upload" className="upload-label">
+                            {uploadingPhoto ? (
+                              <>
+                                <span className="spinner-small"></span>
+                                <span>Uploading...</span>
+                              </>
+                            ) : (
+                              <>
+                                <span className="upload-icon">📷</span>
+                                <span>Add Photo</span>
+                              </>
+                            )}
+                          </label>
+                        </div>
+                      )}
+                    </div>
+
+                    <small className="form-help">
+                      {formData.photos.length}/6 photos uploaded. JPG, PNG, or GIF. Max 10MB per photo.
+                    </small>
+                  </div>
+
+                  <div className="form-actions">
+                    <button
+                      type="button"
+                      onClick={prevStep}
+                      className="btn-prev"
+                    >
+                      ← Back
+                    </button>
+                    <button
                       type="submit"
-                      disabled={submitting || formData.interests.length < 5}
+                      disabled={submitting || formData.photos.length === 0}
                       className="btn-submit"
                     >
                       {submitting ? (
@@ -654,7 +964,7 @@ const Home = () => {
                           Saving...
                         </>
                       ) : (
-                        'Complete Profile'
+                        profileComplete ? 'Update Profile' : 'Complete Profile'
                       )}
                     </button>
                   </div>
