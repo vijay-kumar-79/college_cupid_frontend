@@ -1,49 +1,36 @@
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { MsalProvider, AuthenticatedTemplate, UnauthenticatedTemplate } from '@azure/msal-react';
-import { PublicClientApplication } from '@azure/msal-browser';
-import { msalConfig } from './config/authConfig';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { AuthProvider } from './components/AuthContext';
+import ProtectedRoute from './components/ProtectedRoute';
 import Login from './pages/Login';
-import Dashboard from './pages/Dashboard';
-import './App.css';
-
-// Create MSAL instance
-const msalInstance = new PublicClientApplication(msalConfig);
+import Callback from './components/Callback';
+import Home from './pages/Home';
 
 function App() {
   return (
-    <MsalProvider instance={msalInstance}>
-      <Router>
+    <Router>
+      <AuthProvider>
         <Routes>
-          <Route 
-            path="/" 
+          <Route path="/login" element={<Login />} />
+          <Route path="/auth/callback" element={<Callback />} />
+          <Route
+            path="/home"
             element={
-              <>
-                <UnauthenticatedTemplate>
-                  <Login />
-                </UnauthenticatedTemplate>
-                <AuthenticatedTemplate>
-                  <Navigate to="/dashboard" replace />
-                </AuthenticatedTemplate>
-              </>
-            } 
+              <ProtectedRoute>
+                <Home />
+              </ProtectedRoute>
+            }
           />
-          <Route 
-            path="/dashboard" 
+          <Route
+            path="/"
             element={
-              <>
-                <AuthenticatedTemplate>
-                  <Dashboard />
-                </AuthenticatedTemplate>
-                <UnauthenticatedTemplate>
-                  <Navigate to="/" replace />
-                </UnauthenticatedTemplate>
-              </>
-            } 
+              <ProtectedRoute>
+                <Home />
+              </ProtectedRoute>
+            }
           />
         </Routes>
-      </Router>
-    </MsalProvider>
+      </AuthProvider>
+    </Router>
   );
 }
 
