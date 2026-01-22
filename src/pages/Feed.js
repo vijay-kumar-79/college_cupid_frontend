@@ -116,10 +116,35 @@ function Feed() {
             <div className="users-grid">
               {users.map((user, index) => (
                 <div key={user._id || index} className="user-card">
-                  <div className="user-card-header">
-                    <div className="user-avatar">
-                      {user.name ? user.name.charAt(0).toUpperCase() : '?'}
+                  {/* Photo Gallery */}
+                  {user.profilePicUrls && user.profilePicUrls.length > 0 && (
+                    <div className="user-photo-gallery">
+                      {user.profilePicUrls.slice(0, 6).map((pic, idx) => (
+                        pic.Url && (
+                          <div key={idx} className="gallery-photo">
+                            <img src={pic.Url} alt={`${user.name || 'User'} ${idx + 1}`} />
+                            {idx === 0 && <span className="main-photo-badge">Main</span>}
+                            {idx === 5 && user.profilePicUrls.length > 6 && (
+                              <div className="more-photos-overlay">
+                                +{user.profilePicUrls.length - 6}
+                              </div>
+                            )}
+                          </div>
+                        )
+                      ))}
                     </div>
+                  )}
+
+                  <div className="user-card-header">
+                    {user.profilePicUrls && user.profilePicUrls.length > 0 && user.profilePicUrls[0].Url ? (
+                      <div className="user-avatar">
+                        <img src={user.profilePicUrls[0].Url} alt={user.name || 'User'} className="avatar-image" />
+                      </div>
+                    ) : (
+                      <div className="user-avatar">
+                        {user.name ? user.name.charAt(0).toUpperCase() : '?'}
+                      </div>
+                    )}
                     <div className="user-basic-info">
                       <h4 className="user-name">{user.name || 'Anonymous'}</h4>
                       {user.personalityType && (

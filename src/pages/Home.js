@@ -452,6 +452,11 @@ const Home = () => {
         </div>
         <div className="navbar-right">
           <div className="user-info">
+            {formData.photos && formData.photos.length > 0 && (
+              <div className="navbar-avatar">
+                <img src={formData.photos[0]} alt="Profile" className="navbar-avatar-image" />
+              </div>
+            )}
             <span className="user-name">{user?.displayName || 'User'}</span>
             <button onClick={handleLogout} className="logout-btn">
               Logout
@@ -498,6 +503,19 @@ const Home = () => {
             <div className="profile-summary">
               <div className="summary-card">
                 <h3>Your Profile Summary</h3>
+                
+                {/* Photo Gallery */}
+                {formData.photos && formData.photos.length > 0 && (
+                  <div className="profile-photo-gallery">
+                    {formData.photos.map((photoUrl, index) => (
+                      <div key={index} className="profile-gallery-photo">
+                        <img src={photoUrl} alt={`Profile ${index + 1}`} />
+                        {index === 0 && <span className="main-photo-badge">Main</span>}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
                 <div className="summary-details">
                   <div className="summary-item">
                     <span className="summary-label">Program:</span>
@@ -518,12 +536,6 @@ const Home = () => {
                       )}
                     </div>
                   </div>
-                  {formData.photos.length > 0 && (
-                    <div className="summary-item">
-                      <span className="summary-label">Photos:</span>
-                      <span className="summary-value">{formData.photos.length} uploaded</span>
-                    </div>
-                  )}
                 </div>
               </div>
             </div>
