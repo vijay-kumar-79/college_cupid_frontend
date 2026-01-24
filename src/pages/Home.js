@@ -12,13 +12,13 @@ const Home = () => {
     name: '',
     email: '',
     gender: '',
+    hometown: '',
+    zodiac: 'GEMINI',
     program: '',
     yearOfJoin: new Date().getFullYear(),
     interests: [],
-    sexualOrientation: {
-      type: '',
-      display: false
-    },
+    sexualOrientation: '',
+    typeOfRelationship: '',
     relationshipGoals: {
       goal: '',
       display: false
@@ -26,18 +26,28 @@ const Home = () => {
     personalityType: '',
     publicKey: '',
     currentInterest: '',
-    photos: []  // Store photo URLs
+    photos: [] // store photo URLs
   });
   const [formStep, setFormStep] = useState(1);
   const [submitting, setSubmitting] = useState(false);
   const [profileComplete, setProfileComplete] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
-  // Available options for dropdowns
+  // Options (kept reasonably aligned with backend enums)
   const genderOptions = ['Male', 'Female', 'Non-binary', 'Prefer not to say'];
-  const programOptions = ['B.Tech', 'M.Tech', 'PhD', 'MBA', 'B.Sc', 'M.Sc', 'Other'];
-  const sexualOrientationOptions = ['Straight', 'Gay', 'Lesbian', 'Bisexual', 'Pansexual', 'Asexual', 'Queer', 'Questioning', 'Other'];
+  const programOptions = ['BTECH', 'MTECH', 'PHD', 'MBA', 'BSC', 'MSC', 'Other', 'B.Tech', 'M.Tech', 'PhD'];
+  const sexualOrientationOptions = [
+    'STRAIGHT', 'BISEXUAL', 'LESBIAN', 'GAY', 'OTHERS', 'Straight', 'Bisexual', 'Lesbian', 'Gay', 'Other'
+  ];
+  const typeOfRelationshipOptions = [
+    'LONG TERM', 'SHORT TERM', 'CASUAL', 'NOT LOOOKING TO DATE', 'CASUAL - OPEN TO LONG TERM',
+    'Long-term', 'Short-term', 'Casual', 'Not looking to date', 'Casual - open to long term'
+  ];
   const relationshipGoalOptions = ['Long-term relationship', 'Casual dating', 'Friendship', 'Not sure yet', 'Just exploring'];
+  const zodiacOptions = [
+    'ARIES','TAURUS','GEMINI','CANCER','LEO','VIRGO','LIBRA','SCORPIO','SAGITTARIUS','CAPRICORN','AQUARIUS','PISCES',
+    'Aries','Taurus','Gemini','Cancer','Leo','Virgo','Libra','Scorpio','Sagittarius','Capricorn','Aquarius','Pisces'
+  ];
   const personalityTypeOptions = ['INTJ', 'INTP', 'ENTJ', 'ENTP', 'INFJ', 'INFP', 'ENFJ', 'ENFP', 'ISTJ', 'ISFJ', 'ESTJ', 'ESFJ', 'ISTP', 'ISFP', 'ESTP', 'ESFP'];
   const interestSuggestions = [
     'Music', 'Movies', 'Gaming', 'Reading', 'Cooking', 'Traveling',
@@ -48,6 +58,7 @@ const Home = () => {
 
   useEffect(() => {
     checkAuthAndLoadProfile();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const checkAuthAndLoadProfile = async () => {
@@ -62,12 +73,11 @@ const Home = () => {
     const userData = {
       email: userEmail,
       displayName: localStorage.getItem('displayName') || 'User',
-      rollNumber: localStorage.getItem('rollNumber') || '',
+      rollNumber: localStorage.getItem('rollNumber') || ''
     };
 
     setUser(userData);
 
-    // Check if profile already exists
     try {
       const response = await axios.get(
         `${process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000'}/api/v2/user/profile/email/${userEmail}`,
@@ -79,31 +89,34 @@ const Home = () => {
       );
 
       if (response.data.success && response.data.userProfile) {
-        // Profile exists
         setProfileComplete(true);
         const profile = response.data.userProfile;
-        // Transform profilePicUrls to photos array
-        const photos = profile.profilePicUrls 
-          ? profile.profilePicUrls.map(pic => pic.Url) 
+
+        // Map profilePicUrls to simple photo URL array
+        const photos = Array.isArray(profile.profilePicUrls)
+          ? profile.profilePicUrls.map(p => p.Url).filter(Boolean)
           : [];
-        
+
         setFormData(prev => ({
           ...prev,
           name: profile.name || '',
           gender: profile.gender || '',
+          hometown: profile.hometown || '',
           program: profile.program || '',
           yearOfJoin: profile.yearOfJoin || new Date().getFullYear(),
           interests: profile.interests || [],
-          sexualOrientation: profile.sexualOrientation || { type: '', display: false },
+          sexualOrientation: profile.sexualOrientation || '',
+          typeOfRelationship: profile.typeOfRelationship || '',
           relationshipGoals: profile.relationshipGoals || { goal: '', display: false },
           personalityType: profile.personalityType || '',
           publicKey: profile.publicKey || '',
-          photos: photos
+          photos: photos,
+          zodiac: profile.zodiac || 'GEMINI'
         }));
       }
     } catch (error) {
-      console.log('Profile not found or error:', error);
-      // Profile doesn't exist yet
+      // profile might not exist -> user will create it
+      console.warn('Profile load error or not found:', error?.response?.data || error.message);
     }
 
     setLoading(false);
@@ -139,21 +152,25 @@ const Home = () => {
   };
 
   const handleInterestAdd = () => {
-    if (formData.currentInterest.trim() && !formData.interests.includes(formData.currentInterest.trim())) {
-      if (formData.interests.length < 20) {
-        setFormData(prev => ({
-          ...prev,
-          interests: [...prev.interests, prev.currentInterest.trim()],
-          currentInterest: ''
-        }));
-      }
+    const current = formData.currentInterest?.trim();
+    if (!current) return;
+    if (formData.interests.includes(current)) {
+      setFormData(prev => ({ ...prev, currentInterest: '' }));
+      return;
     }
+    if (formData.interests.length >= 20) return;
+
+    setFormData(prev => ({
+      ...prev,
+      interests: [...prev.interests, current],
+      currentInterest: ''
+    }));
   };
 
   const handleInterestRemove = (interestToRemove) => {
     setFormData(prev => ({
       ...prev,
-      interests: prev.interests.filter(interest => interest !== interestToRemove)
+      interests: prev.interests.filter(i => i !== interestToRemove)
     }));
   };
 
@@ -167,7 +184,7 @@ const Home = () => {
   };
 
   const handlePhotoUpload = async (e) => {
-    const files = Array.from(e.target.files);
+    const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
 
     if (formData.photos.length + files.length > 6) {
@@ -176,35 +193,23 @@ const Home = () => {
     }
 
     setUploadingPhoto(true);
-
     try {
       const accessToken = localStorage.getItem('accessToken');
       const uploadedUrls = [];
 
       for (const file of files) {
-        // Validate file type
         if (!file.type.startsWith('image/')) {
           alert(`${file.name} is not a valid image file`);
           continue;
         }
 
-        // Validate file size (max 10MB)
         if (file.size > 10 * 1024 * 1024) {
           alert(`${file.name} is too large (max 10MB)`);
           continue;
         }
 
-        // Create FormData
         const formDataToUpload = new FormData();
         formDataToUpload.append('dp', file);
-
-        console.log('Uploading file:', {
-          name: file.name,
-          size: file.size,
-          type: file.type,
-          tokenExists: !!accessToken,
-          tokenLength: accessToken?.length
-        });
 
         const response = await axios.post(
           `${process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000'}/api/v2/uploadImage`,
@@ -212,19 +217,15 @@ const Home = () => {
           {
             headers: {
               'Authorization': `Bearer ${accessToken}`
-              // Don't set Content-Type - axios sets it automatically for FormData
             }
           }
         );
 
-        console.log('Upload response:', response.data);
-
-        if (response.data.success) {
+        if (response.data?.success && response.data.imageUrl) {
           uploadedUrls.push(response.data.imageUrl);
-          console.log('Image URL received:', response.data.imageUrl);
         } else {
-          console.error('Upload not successful:', response.data);
-          alert(`Upload failed: ${response.data.message || 'Unknown error'}`);
+          console.error('Upload failed for', file.name, response.data);
+          alert(`Upload failed for ${file.name}: ${response.data?.message || 'Unknown error'}`);
         }
       }
 
@@ -233,56 +234,15 @@ const Home = () => {
           ...prev,
           photos: [...prev.photos, ...uploadedUrls]
         }));
-        alert(`Successfully uploaded ${uploadedUrls.length} photo(s)!`);
+        alert(`Uploaded ${uploadedUrls.length} photo(s)`);
       }
     } catch (error) {
-      console.error('Full error object:', error);
-
-      // Log the complete error response
-      if (error.response) {
-        console.error('Status:', error.response.status);
-        console.error('Headers:', error.response.headers);
-        console.error('Response data:', error.response.data);
-        console.error('Response data stringified:', JSON.stringify(error.response.data, null, 2));
-
-        // Try to get the actual error message
-        const errorMessage = error.response.data?.message ||
-                            error.response.data?.error ||
-                            error.response.data?.details ||
-                            error.message;
-
-        console.error('Parsed error message:', errorMessage);
-
-        // Show specific messages based on error
-        if (error.response.status === 401) {
-          alert('Your session has expired. Please log in again.');
-          handleLogout();
-        } else if (error.response.status === 413) {
-          alert('File too large. Please upload files smaller than 10MB.');
-        } else if (error.response.status === 415) {
-          alert('Invalid file type. Please upload only images (JPG, PNG, GIF).');
-        } else if (error.response.status === 500) {
-          // Show the actual server error message if available
-          const serverError = error.response.data?.error ||
-                             error.response.data?.message ||
-                             'Server error. Please try again.';
-          alert(`Server error: ${serverError}`);
-
-          // Check for specific backend errors
-          if (serverError.includes('disk storage')) {
-            alert('Storage error: The server might be out of disk space.');
-          } else if (serverError.includes('permission')) {
-            alert('Permission error: The server cannot write to the images folder.');
-          } else if (serverError.includes('compress')) {
-            alert('Image processing error: The server failed to compress the image.');
-          }
-        }
-      } else if (error.request) {
-        console.error('No response received:', error.request);
-        alert('No response from server. Please check your internet connection and ensure the server is running.');
+      console.error('Photo upload error:', error?.response?.data || error.message);
+      if (error.response?.status === 401) {
+        alert('Session expired. Please log in again.');
+        handleLogout();
       } else {
-        console.error('Request setup error:', error.message);
-        alert(`Error: ${error.message}`);
+        alert(`Upload error: ${error.response?.data?.message || error.message}`);
       }
     } finally {
       setUploadingPhoto(false);
@@ -290,36 +250,35 @@ const Home = () => {
   };
 
   const handlePhotoDelete = async (photoUrl) => {
-    if (!window.confirm('Are you sure you want to delete this photo?')) {
-      return;
-    }
+    if (!window.confirm('Are you sure you want to delete this photo?')) return;
 
     try {
       const accessToken = localStorage.getItem('accessToken');
 
-      // Extract photoId from URL
+      // Try to extract photoId from query param 'photoId=' if available, else send the URL encoded to backend
+      let deleteUrl = `${process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000'}/api/v2/deleteImage/`;
       const urlParts = photoUrl.split('photoId=');
-      if (urlParts.length < 2) {
-        throw new Error('Invalid photo URL');
+      let endpoint = '';
+
+      if (urlParts.length >= 2) {
+        endpoint = urlParts[1];
+      } else {
+        // fallback - encode the whole URL
+        endpoint = encodeURIComponent(photoUrl);
       }
-      const photoId = urlParts[1];
 
-      await axios.delete(
-        `${process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000'}/api/v2/deleteImage/${photoId}`,
-        {
-          headers: {
-            'Authorization': `Bearer ${accessToken}`
-          }
+      await axios.delete(deleteUrl + endpoint, {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`
         }
-      );
+      });
 
-      // Remove from local state
       setFormData(prev => ({
         ...prev,
-        photos: prev.photos.filter(url => url !== photoUrl)
+        photos: prev.photos.filter(p => p !== photoUrl)
       }));
     } catch (error) {
-      console.error('Error deleting photo:', error);
+      console.error('Delete photo error:', error?.response?.data || error.message);
       alert(`Failed to delete photo: ${error.response?.data?.message || error.message}`);
     }
   };
@@ -327,7 +286,7 @@ const Home = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // Validate required fields
+    // Backend requires at least 5 interests and at least one photo and required fields
     if (formData.interests.length < 5) {
       alert('Please add at least 5 interests');
       return;
@@ -338,8 +297,26 @@ const Home = () => {
       return;
     }
 
-    if (!formData.publicKey) {
+    if (!formData.publicKey?.trim()) {
       alert('Please enter your public key');
+      return;
+    }
+
+    // Ensure required backend fields exist
+    if (!formData.sexualOrientation) {
+      alert('Please select your sexual orientation');
+      return;
+    }
+    if (!formData.typeOfRelationship) {
+      alert('Please select the type of relationship you are looking for');
+      return;
+    }
+    if (!formData.hometown) {
+      alert('Please enter your hometown');
+      return;
+    }
+    if (!formData.zodiac) {
+      alert('Please select your zodiac sign');
       return;
     }
 
@@ -349,24 +326,27 @@ const Home = () => {
       const accessToken = localStorage.getItem('accessToken');
       const userEmail = localStorage.getItem('userEmail');
 
-      // Transform photos array to profilePicUrls format
-      const profilePicUrls = formData.photos.map(photoUrl => ({
-        Url: photoUrl,
-        blurHash: null
-      }));
+      const profilePicUrls = formData.photos.map(url => ({ Url: url, blurHash: null }));
 
-      // Prepare the data to send
+      // Build payload consistent with backend UserProfile model
       const profileData = {
-        ...formData,
+        name: formData.name,
         email: userEmail,
-        profilePicUrls: profilePicUrls
+        gender: formData.gender,
+        hometown: formData.hometown,
+        program: formData.program,
+        yearOfJoin: Number(formData.yearOfJoin),
+        interests: formData.interests,
+        sexualOrientation: formData.sexualOrientation,
+        typeOfRelationship: formData.typeOfRelationship,
+        relationshipGoals: formData.relationshipGoals,
+        personalityType: formData.personalityType,
+        publicKey: formData.publicKey,
+        profilePicUrls: profilePicUrls,
+        zodiac: formData.zodiac,
       };
 
-      // Remove the photos field as it's now in profilePicUrls
-      delete profileData.photos;
-      delete profileData.currentInterest;
-
-      console.log('Submitting profile data:', profileData);
+      console.log('Submitting profile:', profileData);
 
       const response = await axios.post(
         `${process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000'}/api/v2/user/profile`,
@@ -379,18 +359,17 @@ const Home = () => {
         }
       );
 
-      console.log('Response:', response);
-
-      if (response.data.success) {
+      if (response.data?.success) {
         setProfileComplete(true);
         setShowProfileForm(false);
         alert('Profile saved successfully!');
-
-        // Optionally reload the profile to get updated data
         checkAuthAndLoadProfile();
+      } else {
+        console.error('Profile save failed:', response.data);
+        alert(`Failed to save profile: ${response.data?.message || 'Unknown error'}`);
       }
     } catch (error) {
-      console.error('Error saving profile:', error);
+      console.error('Save profile error:', error?.response?.data || error.message);
       alert(`Error saving profile: ${error.response?.data?.message || error.message}`);
     } finally {
       setSubmitting(false);
@@ -398,7 +377,7 @@ const Home = () => {
   };
 
   const nextStep = () => {
-    // Validation for each step
+    // Validation per step
     if (formStep === 1) {
       if (!formData.name.trim()) {
         alert('Please enter your name');
@@ -416,9 +395,25 @@ const Home = () => {
         alert('Please enter your year of join');
         return;
       }
+      if (!formData.hometown.trim()) {
+        alert('Please enter your hometown');
+        return;
+      }
+      if (!formData.zodiac) {
+        alert('Please select your zodiac sign');
+        return;
+      }
     } else if (formStep === 2) {
       if (!formData.publicKey.trim()) {
         alert('Please enter your public key');
+        return;
+      }
+      if (!formData.sexualOrientation) {
+        alert('Please select your sexual orientation');
+        return;
+      }
+      if (!formData.typeOfRelationship) {
+        alert('Please select the type of relationship you are looking for');
         return;
       }
     } else if (formStep === 3) {
@@ -427,12 +422,11 @@ const Home = () => {
         return;
       }
     }
-
     setFormStep(prev => prev + 1);
   };
 
   const prevStep = () => {
-    setFormStep(prev => prev - 1);
+    setFormStep(prev => Math.max(1, prev - 1));
   };
 
   if (loading) {
@@ -457,10 +451,8 @@ const Home = () => {
                 <img src={formData.photos[0]} alt="Profile" className="navbar-avatar-image" />
               </div>
             )}
-            <span className="user-name">{user?.displayName || 'User'}</span>
-            <button onClick={handleLogout} className="logout-btn">
-              Logout
-            </button>
+            <span className="user-name">{user?.displayName || formData.name || 'User'}</span>
+            <button onClick={handleLogout} className="logout-btn">Logout</button>
           </div>
         </div>
       </nav>
@@ -480,15 +472,10 @@ const Home = () => {
                 </div>
                 <span className="progress-text">Profile 0% complete</span>
               </div>
-              <button
-                onClick={() => setShowProfileForm(true)}
-                className="cta-button"
-              >
+              <button onClick={() => setShowProfileForm(true)} className="cta-button">
                 Complete Your Profile
               </button>
-              <p className="cta-note">
-                This will only take a few minutes!
-              </p>
+              <p className="cta-note">This will only take a few minutes!</p>
             </div>
           </div>
         )}
@@ -503,8 +490,7 @@ const Home = () => {
             <div className="profile-summary">
               <div className="summary-card">
                 <h3>Your Profile Summary</h3>
-                
-                {/* Photo Gallery */}
+
                 {formData.photos && formData.photos.length > 0 && (
                   <div className="profile-photo-gallery">
                     {formData.photos.map((photoUrl, index) => (
@@ -526,6 +512,22 @@ const Home = () => {
                     <span className="summary-value">{formData.yearOfJoin}</span>
                   </div>
                   <div className="summary-item">
+                    <span className="summary-label">Hometown:</span>
+                    <span className="summary-value">{formData.hometown}</span>
+                  </div>
+                  <div className="summary-item">
+                    <span className="summary-label">Zodiac:</span>
+                    <span className="summary-value">{formData.zodiac}</span>
+                  </div>
+                  <div className="summary-item">
+                    <span className="summary-label">Sexual Orientation:</span>
+                    <span className="summary-value">{formData.sexualOrientation}</span>
+                  </div>
+                  <div className="summary-item">
+                    <span className="summary-label">Type of Relationship:</span>
+                    <span className="summary-value">{formData.typeOfRelationship}</span>
+                  </div>
+                  <div className="summary-item">
                     <span className="summary-label">Interests:</span>
                     <div className="interests-tags">
                       {formData.interests.slice(0, 5).map((interest, index) => (
@@ -543,10 +545,7 @@ const Home = () => {
             <div className="dashboard-actions">
               <h3>What would you like to do?</h3>
               <div className="action-grid">
-                <button
-                  className="dashboard-btn"
-                  onClick={() => setShowProfileForm(true)}
-                >
+                <button className="dashboard-btn" onClick={() => setShowProfileForm(true)}>
                   <span className="btn-icon">👤</span>
                   <span className="btn-text">Edit Profile</span>
                 </button>
@@ -576,17 +575,17 @@ const Home = () => {
                   <span className="step-number">1</span>
                   <span className="step-text">Basic Info</span>
                 </div>
-                <div className="step-line"></div>
+                <div className="step-line" />
                 <div className={`step ${formStep >= 2 ? 'active' : ''}`}>
                   <span className="step-number">2</span>
                   <span className="step-text">Preferences</span>
                 </div>
-                <div className="step-line"></div>
+                <div className="step-line" />
                 <div className={`step ${formStep >= 3 ? 'active' : ''}`}>
                   <span className="step-number">3</span>
                   <span className="step-text">Interests</span>
                 </div>
-                <div className="step-line"></div>
+                <div className="step-line" />
                 <div className={`step ${formStep >= 4 ? 'active' : ''}`}>
                   <span className="step-number">4</span>
                   <span className="step-text">Photos</span>
@@ -601,28 +600,14 @@ const Home = () => {
                   <div className="form-group">
                     <label htmlFor="name">
                       Full Name *
-                      <input
-                        type="text"
-                        id="name"
-                        name="name"
-                        value={formData.name}
-                        onChange={handleInputChange}
-                        placeholder="Enter your full name"
-                        required
-                      />
+                      <input type="text" id="name" name="name" value={formData.name} onChange={handleInputChange} placeholder="Enter your full name" required />
                     </label>
                   </div>
 
                   <div className="form-group">
                     <label htmlFor="gender">
                       Gender *
-                      <select
-                        id="gender"
-                        name="gender"
-                        value={formData.gender}
-                        onChange={handleInputChange}
-                        required
-                      >
+                      <select id="gender" name="gender" value={formData.gender} onChange={handleInputChange} required>
                         <option value="">Select gender</option>
                         {genderOptions.map(option => (
                           <option key={option} value={option}>{option}</option>
@@ -635,13 +620,7 @@ const Home = () => {
                     <div className="form-group">
                       <label htmlFor="program">
                         Program *
-                        <select
-                          id="program"
-                          name="program"
-                          value={formData.program}
-                          onChange={handleInputChange}
-                          required
-                        >
+                        <select id="program" name="program" value={formData.program} onChange={handleInputChange} required>
                           <option value="">Select program</option>
                           {programOptions.map(option => (
                             <option key={option} value={option}>{option}</option>
@@ -653,29 +632,32 @@ const Home = () => {
                     <div className="form-group">
                       <label htmlFor="yearOfJoin">
                         Year of Join *
-                        <input
-                          type="number"
-                          id="yearOfJoin"
-                          name="yearOfJoin"
-                          value={formData.yearOfJoin}
-                          onChange={handleInputChange}
-                          min="2000"
-                          max={new Date().getFullYear()}
-                          required
-                        />
+                        <input type="number" id="yearOfJoin" name="yearOfJoin" value={formData.yearOfJoin} onChange={handleInputChange} min="2000" max={new Date().getFullYear()} required />
                       </label>
                     </div>
                   </div>
 
                   <div className="form-group">
+                    <label htmlFor="hometown">
+                      Hometown *
+                      <input type="text" id="hometown" name="hometown" value={formData.hometown} onChange={handleInputChange} placeholder="Hometown" required />
+                    </label>
+                  </div>
+
+                  <div className="form-group">
+                    <label htmlFor="zodiac">
+                      Zodiac Sign *
+                      <select id="zodiac" name="zodiac" value={formData.zodiac || ''} onChange={handleInputChange} required>
+                        <option value="">Select zodiac</option>
+                        {zodiacOptions.map(z => <option key={z} value={z}>{z}</option>)}
+                      </select>
+                    </label>
+                  </div>
+
+                  <div className="form-group">
                     <label htmlFor="personalityType">
                       Personality Type (Optional)
-                      <select
-                        id="personalityType"
-                        name="personalityType"
-                        value={formData.personalityType}
-                        onChange={handleInputChange}
-                      >
+                      <select id="personalityType" name="personalityType" value={formData.personalityType} onChange={handleInputChange}>
                         <option value="">Select personality type</option>
                         {personalityTypeOptions.map(option => (
                           <option key={option} value={option}>{option}</option>
@@ -685,13 +667,7 @@ const Home = () => {
                   </div>
 
                   <div className="form-actions">
-                    <button
-                      type="button"
-                      onClick={nextStep}
-                      className="btn-next"
-                    >
-                      Next →
-                    </button>
+                    <button type="button" onClick={nextStep} className="btn-next">Next →</button>
                   </div>
                 </div>
               )}
@@ -701,43 +677,33 @@ const Home = () => {
                   <h3>Preferences</h3>
 
                   <div className="form-group">
-                    <label htmlFor="sexualOrientation.type">
-                      Sexual Orientation
-                      <select
-                        id="sexualOrientation.type"
-                        name="sexualOrientation.type"
-                        value={formData.sexualOrientation.type}
-                        onChange={handleInputChange}
-                      >
+                    <label htmlFor="sexualOrientation">
+                      Sexual Orientation *
+                      <select id="sexualOrientation" name="sexualOrientation" value={formData.sexualOrientation} onChange={handleInputChange} required>
                         <option value="">Select sexual orientation</option>
                         {sexualOrientationOptions.map(option => (
                           <option key={option} value={option}>{option}</option>
                         ))}
                       </select>
                     </label>
-                    <div className="checkbox-group">
-                      <input
-                        type="checkbox"
-                        id="sexualOrientation.display"
-                        name="sexualOrientation.display"
-                        checked={formData.sexualOrientation.display}
-                        onChange={handleInputChange}
-                      />
-                      <label htmlFor="sexualOrientation.display">
-                        Show on profile
-                      </label>
-                    </div>
+                  </div>
+
+                  <div className="form-group">
+                    <label htmlFor="typeOfRelationship">
+                      Type of Relationship *
+                      <select id="typeOfRelationship" name="typeOfRelationship" value={formData.typeOfRelationship} onChange={handleInputChange} required>
+                        <option value="">Select type of relationship</option>
+                        {typeOfRelationshipOptions.map(option => (
+                          <option key={option} value={option}>{option}</option>
+                        ))}
+                      </select>
+                    </label>
                   </div>
 
                   <div className="form-group">
                     <label htmlFor="relationshipGoals.goal">
                       Relationship Goals
-                      <select
-                        id="relationshipGoals.goal"
-                        name="relationshipGoals.goal"
-                        value={formData.relationshipGoals.goal}
-                        onChange={handleInputChange}
-                      >
+                      <select id="relationshipGoals.goal" name="relationshipGoals.goal" value={formData.relationshipGoals.goal} onChange={handleInputChange}>
                         <option value="">Select relationship goal</option>
                         {relationshipGoalOptions.map(option => (
                           <option key={option} value={option}>{option}</option>
@@ -745,52 +711,22 @@ const Home = () => {
                       </select>
                     </label>
                     <div className="checkbox-group">
-                      <input
-                        type="checkbox"
-                        id="relationshipGoals.display"
-                        name="relationshipGoals.display"
-                        checked={formData.relationshipGoals.display}
-                        onChange={handleInputChange}
-                      />
-                      <label htmlFor="relationshipGoals.display">
-                        Show on profile
-                      </label>
+                      <input type="checkbox" id="relationshipGoals.display" name="relationshipGoals.display" checked={formData.relationshipGoals.display} onChange={handleInputChange} />
+                      <label htmlFor="relationshipGoals.display">Show on profile</label>
                     </div>
                   </div>
 
                   <div className="form-group">
                     <label htmlFor="publicKey">
                       Public Key *
-                      <input
-                        type="text"
-                        id="publicKey"
-                        name="publicKey"
-                        value={formData.publicKey}
-                        onChange={handleInputChange}
-                        placeholder="Enter your public key"
-                        required
-                      />
-                      <small className="form-help">
-                        This is required for secure communication
-                      </small>
+                      <input type="text" id="publicKey" name="publicKey" value={formData.publicKey} onChange={handleInputChange} placeholder="Enter your public key" required />
+                      <small className="form-help">This is required for secure communication</small>
                     </label>
                   </div>
 
                   <div className="form-actions">
-                    <button
-                      type="button"
-                      onClick={prevStep}
-                      className="btn-prev"
-                    >
-                      ← Back
-                    </button>
-                    <button
-                      type="button"
-                      onClick={nextStep}
-                      className="btn-next"
-                    >
-                      Next →
-                    </button>
+                    <button type="button" onClick={prevStep} className="btn-prev">← Back</button>
+                    <button type="button" onClick={nextStep} className="btn-next">Next →</button>
                   </div>
                 </div>
               )}
@@ -798,9 +734,7 @@ const Home = () => {
               {formStep === 3 && (
                 <div className="form-step">
                   <h3>Interests</h3>
-                  <p className="form-description">
-                    Add 5-20 interests that describe you. This helps us find better matches!
-                  </p>
+                  <p className="form-description">Add 5-20 interests that describe you. This helps us find better matches!</p>
 
                   <div className="interests-container">
                     <div className="current-interests">
@@ -812,13 +746,7 @@ const Home = () => {
                           {formData.interests.map((interest, index) => (
                             <span key={index} className="interest-tag removable">
                               {interest}
-                              <button
-                                type="button"
-                                onClick={() => handleInterestRemove(interest)}
-                                className="remove-tag"
-                              >
-                                ×
-                              </button>
+                              <button type="button" onClick={() => handleInterestRemove(interest)} className="remove-tag">×</button>
                             </span>
                           ))}
                         </div>
@@ -827,14 +755,7 @@ const Home = () => {
 
                     <div className="add-interest">
                       <div className="interest-input-group">
-                        <input
-                          type="text"
-                          value={formData.currentInterest}
-                          onChange={(e) => setFormData(prev => ({
-                            ...prev,
-                            currentInterest: e.target.value
-                          }))}
-                          placeholder="Add an interest"
+                        <input type="text" value={formData.currentInterest} onChange={(e) => setFormData(prev => ({ ...prev, currentInterest: e.target.value }))} placeholder="Add an interest"
                           onKeyPress={(e) => {
                             if (e.key === 'Enter') {
                               e.preventDefault();
@@ -842,31 +763,16 @@ const Home = () => {
                             }
                           }}
                         />
-                        <button
-                          type="button"
-                          onClick={handleInterestAdd}
-                          disabled={!formData.currentInterest.trim() || formData.interests.length >= 20}
-                          className="add-interest-btn"
-                        >
-                          Add
-                        </button>
+                        <button type="button" onClick={handleInterestAdd} disabled={!formData.currentInterest.trim() || formData.interests.length >= 20} className="add-interest-btn">Add</button>
                       </div>
-                      <small className="form-help">
-                        Press Enter or click Add to include an interest
-                      </small>
+                      <small className="form-help">Press Enter or click Add to include an interest</small>
                     </div>
 
                     <div className="interest-suggestions">
                       <h4>Popular Interests</h4>
                       <div className="suggestion-tags">
                         {interestSuggestions.map((suggestion, index) => (
-                          <button
-                            key={index}
-                            type="button"
-                            onClick={() => handleInterestSuggestionClick(suggestion)}
-                            disabled={formData.interests.includes(suggestion) || formData.interests.length >= 20}
-                            className="suggestion-tag"
-                          >
+                          <button key={index} type="button" onClick={() => handleInterestSuggestionClick(suggestion)} disabled={formData.interests.includes(suggestion) || formData.interests.length >= 20} className="suggestion-tag">
                             {suggestion}
                           </button>
                         ))}
@@ -875,21 +781,8 @@ const Home = () => {
                   </div>
 
                   <div className="form-actions">
-                    <button
-                      type="button"
-                      onClick={prevStep}
-                      className="btn-prev"
-                    >
-                      ← Back
-                    </button>
-                    <button
-                      type="button"
-                      onClick={nextStep}
-                      disabled={formData.interests.length < 5}
-                      className="btn-next"
-                    >
-                      Next →
-                    </button>
+                    <button type="button" onClick={prevStep} className="btn-prev">← Back</button>
+                    <button type="button" onClick={nextStep} disabled={formData.interests.length < 5} className="btn-next">Next →</button>
                   </div>
                 </div>
               )}
@@ -897,44 +790,21 @@ const Home = () => {
               {formStep === 4 && (
                 <div className="form-step">
                   <h3>Upload Photos</h3>
-                  <p className="form-description">
-                    Add 1-6 photos to your profile. Your first photo will be your main profile picture.
-                  </p>
+                  <p className="form-description">Add 1-6 photos to your profile. Your first photo will be your main profile picture.</p>
 
                   <div className="photo-upload-container">
                     <div className="photos-grid">
                       {formData.photos.map((photoUrl, index) => (
                         <div key={index} className="photo-item">
-                          <img
-                            src={photoUrl}
-                            alt={`Upload ${index + 1}`}
-                            onError={(e) => {
-                              e.target.onerror = null;
-                              e.target.src = 'https://via.placeholder.com/150x150?text=Image+Error';
-                            }}
-                          />
+                          <img src={photoUrl} alt={`Upload ${index + 1}`} onError={(e) => { e.target.onerror = null; e.target.src = 'https://via.placeholder.com/150x150?text=Image+Error'; }} />
                           {index === 0 && <span className="main-badge">Main</span>}
-                          <button
-                            type="button"
-                            onClick={() => handlePhotoDelete(photoUrl)}
-                            className="delete-photo-btn"
-                          >
-                            ×
-                          </button>
+                          <button type="button" onClick={() => handlePhotoDelete(photoUrl)} className="delete-photo-btn">×</button>
                         </div>
                       ))}
 
                       {formData.photos.length < 6 && (
                         <div className="photo-upload-box">
-                          <input
-                            type="file"
-                            id="photo-upload"
-                            accept="image/*"
-                            multiple
-                            onChange={handlePhotoUpload}
-                            disabled={uploadingPhoto}
-                            style={{ display: 'none' }}
-                          />
+                          <input type="file" id="photo-upload" accept="image/*" multiple onChange={handlePhotoUpload} disabled={uploadingPhoto} style={{ display: 'none' }} />
                           <label htmlFor="photo-upload" className="upload-label">
                             {uploadingPhoto ? (
                               <>
@@ -952,24 +822,12 @@ const Home = () => {
                       )}
                     </div>
 
-                    <small className="form-help">
-                      {formData.photos.length}/6 photos uploaded. JPG, PNG, or GIF. Max 10MB per photo.
-                    </small>
+                    <small className="form-help">{formData.photos.length}/6 photos uploaded. JPG, PNG, or GIF. Max 10MB per photo.</small>
                   </div>
 
                   <div className="form-actions">
-                    <button
-                      type="button"
-                      onClick={prevStep}
-                      className="btn-prev"
-                    >
-                      ← Back
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={submitting || formData.photos.length === 0}
-                      className="btn-submit"
-                    >
+                    <button type="button" onClick={prevStep} className="btn-prev">← Back</button>
+                    <button type="submit" disabled={submitting || formData.photos.length === 0} className="btn-submit">
                       {submitting ? (
                         <>
                           <span className="spinner-small"></span>
